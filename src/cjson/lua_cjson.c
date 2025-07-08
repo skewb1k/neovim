@@ -111,6 +111,40 @@
 #define lua_objlen(L,i)		luaL_len(L, (i))
 #endif
 
+/* lsp_key_node_t defines a tree-like path matcher for handling explicit `null`
+ * values in JSON objects during decoding.
+ *
+ * For any key path listed in this structure, a `null` in the input JSON will be
+ * converted to `vim.NIL` to distinguish it from a missing field.
+ * If a key path is not present in this tree, `null` and missing
+ * are treated the same (as plain Lua `nil`). */
+typedef struct lsp_key_node_t {
+    const char *key;
+    const struct lsp_key_node_t *children;
+    const size_t count;
+} lsp_key_node_t;
+
+/* TODO: Automatically generate this tree with src/gen/gen_lsp.lua . */
+static const lsp_key_node_t lsp_signatures_keys[] = {
+    { "activeParameter", NULL, 0 },
+};
+
+static const lsp_key_node_t lsp_result_keys[] = {
+    { "data", NULL, 0 },
+    { "activeParameter", NULL, 0 },
+    { "signatures", lsp_signatures_keys, 0 },
+};
+
+static const lsp_key_node_t lsp_root_keys[] = {
+    { "result", lsp_result_keys, 1 },
+};
+
+// Root node representing the top-level document.
+static const lsp_key_node_t lsp_root_node = {
+    "", lsp_root_keys, 1
+};
+
+
 static const char * const *json_empty_array;
 static const char * const *json_array;
 
@@ -190,6 +224,7 @@ typedef struct {
     bool luanil_object;
     /* convert null in json arrays to lua nil instead of vim.NIL */
     bool luanil_array;
+    bool luanil_lsp;
 } json_options_t;
 
 typedef struct {
@@ -264,6 +299,7 @@ static json_config_t *json_fetch_config(lua_State *l)
 
     return cfg;
 }
+
 
 /* Ensure the correct number of arguments have been provided.
  * Pad with nil to allow other functions to simply check arg[i]
@@ -701,7 +737,7 @@ static void json_check_encode_depth(lua_State *l, json_config_t *cfg,
                current_depth);
 }
 
-static int json_append_data(lua_State *l, json_encode_t *cfg,
+static int json_append_data(lua_State *l, json_encode_t *ctx,
                              int current_depth);
 
 /* json_append_array args:
@@ -993,7 +1029,7 @@ static int json_encode(lua_State *l)
 
         if (escape_slash) {
             /* This can be optimised by adding a new hard-coded escape table for this case,
-             * but this path will rarely if ever be used, so let's just memcpy.*/ 
+             * but this path will rarely if ever be used, so let's just memcpy.*/
             memcpy(customChar2escape, char2escape, sizeof(char2escape));
             customChar2escape['/'] = "\\/";
             *ctx.options->char2escape = customChar2escape;
@@ -1030,7 +1066,7 @@ static int json_encode(lua_State *l)
 /* ===== DECODING ===== */
 
 static void json_process_value(lua_State *l, json_parse_t *json,
-                               json_token_t *token, bool use_luanil);
+                               json_token_t *token, bool in_array, const lsp_key_node_t *lsp_key_node);
 
 static int hexdigit2int(char hex)
 {
@@ -1435,7 +1471,7 @@ static void json_decode_descend(lua_State *l, json_parse_t *json, int slots)
         json->current_depth, json->ptr - json->data);
 }
 
-static void json_parse_object_context(lua_State *l, json_parse_t *json)
+static void json_parse_object_context(lua_State *l, json_parse_t *json, const lsp_key_node_t *current_node)
 {
     json_token_t token;
 
@@ -1462,13 +1498,24 @@ static void json_parse_object_context(lua_State *l, json_parse_t *json)
         /* Push key */
         lua_pushlstring(l, token.value.string, token.string_len);
 
+        const lsp_key_node_t *next_node = current_node;
+        if (current_node && current_node->children) {
+            for (size_t i = 0; i < current_node->count; ++i) {
+                const lsp_key_node_t *child = &current_node->children[i];
+                if (strncmp(child->key, token.value.string, token.string_len) == 0 && child->key[token.string_len] == '\0') {
+                    next_node = child;
+                    break;
+                }
+            }
+        }
+
         json_next_token(json, &token);
         if (token.type != T_COLON)
             json_throw_parse_error(l, json, "colon", &token);
 
         /* Fetch value */
         json_next_token(json, &token);
-        json_process_value(l, json, &token, json->options->luanil_object);
+        json_process_value(l, json, &token, false, next_node);
 
         /* Set key = value */
         lua_rawset(l, -3);
@@ -1488,7 +1535,7 @@ static void json_parse_object_context(lua_State *l, json_parse_t *json)
 }
 
 /* Handle the array context */
-static void json_parse_array_context(lua_State *l, json_parse_t *json)
+static void json_parse_array_context(lua_State *l, json_parse_t *json, const lsp_key_node_t *current_node)
 {
     json_token_t token;
     int i;
@@ -1515,7 +1562,7 @@ static void json_parse_array_context(lua_State *l, json_parse_t *json)
     }
 
     for (i = 1; ; i++) {
-        json_process_value(l, json, &token, json->options->luanil_array);
+        json_process_value(l, json, &token, true, current_node);
         lua_rawseti(l, -2, i);            /* arr[i] = value */
 
         json_next_token(json, &token);
@@ -1534,7 +1581,7 @@ static void json_parse_array_context(lua_State *l, json_parse_t *json)
 
 /* Handle the "value" context */
 static void json_process_value(lua_State *l, json_parse_t *json,
-                               json_token_t *token, bool use_luanil)
+                               json_token_t *token, bool in_array, const lsp_key_node_t *lsp_key_node)
 {
     switch (token->type) {
     case T_STRING:
@@ -1550,13 +1597,18 @@ static void json_process_value(lua_State *l, json_parse_t *json,
         lua_pushboolean(l, token->value.boolean);
         break;;
     case T_OBJ_BEGIN:
-        json_parse_object_context(l, json);
+        json_parse_object_context(l, json, lsp_key_node);
         break;;
     case T_ARR_BEGIN:
-        json_parse_array_context(l, json);
+        json_parse_array_context(l, json, lsp_key_node);
         break;;
     case T_NULL:
-        if (use_luanil) {
+        if ((in_array && json->options->luanil_array) ||
+            (!in_array &&
+             (json->options->luanil_object ||
+              /* Push vim.NIL if value under the "leaf" lsp_key_node */
+              (json->options->luanil_lsp && !(lsp_key_node && !lsp_key_node->count)))))
+        {
             lua_pushnil(l);
         } else {
             nlua_pushref(l, nlua_get_nil_ref(l));
@@ -1571,7 +1623,7 @@ static int json_decode(lua_State *l)
 {
     json_parse_t json;
     json_token_t token;
-    json_options_t options = { .luanil_object = false, .luanil_array = false };
+    json_options_t options = { .luanil_object = false, .luanil_array = false, .luanil_lsp = false };
 
 
     size_t json_len;
@@ -1597,6 +1649,10 @@ static int json_decode(lua_State *l)
 
         lua_getfield(l, -1, "array");
         options.luanil_array = lua_toboolean(l, -1);
+        lua_pop(l, 1);
+
+        lua_getfield(l, -1, "lsp");
+        options.luanil_lsp = lua_toboolean(l, -1);
         /* Also pop the luanil table */
         lua_pop(l, 2);
         break;
@@ -1624,7 +1680,11 @@ static int json_decode(lua_State *l)
     json.tmp = strbuf_new(json_len);
 
     json_next_token(&json, &token);
-    json_process_value(l, &json, &token, json.options->luanil_object);
+
+    /* Set the lsp_key_node path tree root only if luanil_lsp is enabled;
+     otherwise, keep it NULL to skip any further path checks. */
+    const lsp_key_node_t *lsp_key_node = json.options->luanil_lsp ? &lsp_root_node : NULL;
+    json_process_value(l, &json, &token, false, lsp_key_node);
 
     /* Ensure there is no more input left */
     json_next_token(&json, &token);

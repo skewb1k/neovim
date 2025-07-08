@@ -30,6 +30,10 @@ vim.json = {}
 ---                                   to Lua `nil` instead of |vim.NIL|.
 ---                                 - array: (boolean) When true, converts `null` in JSON arrays
 ---                                   to Lua `nil` instead of |vim.NIL|.
+---                                 - lsp: (boolean) Similar to `object`, but applies
+---                                   LSP-specific logic: for known paths, `null` values
+---                                   are converted to |vim.NIL| to preserve explicit null,
+---                                   while other fields are converted to `nil`.
 ---@return any
 function vim.json.decode(str, opts) end
 
