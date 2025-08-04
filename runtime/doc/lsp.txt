@@ -361,10 +361,9 @@ Each response handler has this signature: >
     function(err, result, ctx)
 <
     Parameters: ~
-      • {err}     (`table|nil`) Error info dict, or `nil` if the request
-                  completed.
-      • {result}  (`Result|Params|nil`) `result` key of the |lsp-response| or
-                  `nil` if the request failed.
+      • {err}     (`lsp.ResponseError?`) `error` key of the |lsp-response|,
+                  or `nil` if the request completed.
+      • {result}  (`any?`) `result` key of the |lsp-response|.
       • {ctx}     (`table`) Table of calling state associated with the
                   handler, with these keys:
                   • {method}     (`string`) |lsp-method| name.
