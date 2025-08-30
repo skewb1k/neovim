@@ -2,6 +2,7 @@ local api = vim.api
 local query = vim.treesitter.query
 local Range = require('vim.treesitter._range')
 local cmp_lt = Range.cmp_pos.lt
+local cmp_le = Range.cmp_pos.le
 
 local ns = api.nvim_create_namespace('nvim.treesitter.highlighter')
 
@@ -356,14 +357,14 @@ local function add_mark(
   end
 
   local cur_opts = m.opts
-  if cmp_lt(range_end_row, range_end_col, cur_opts.end_line, cur_opts.end_col) then
+  if cmp_le(range_end_row, range_end_col, cur_opts.end_line, cur_opts.end_col) then
     cur_opts = vim.deepcopy(cur_opts, true)
     cur_opts.end_line = range_end_row
     cur_opts.end_col = range_end_col
     table.insert(next_marks, m)
   end
 
-  if cmp_lt(cur_start_l, cur_start_c, cur_opts.end_line, cur_opts.end_col) then
+  if cmp_le(cur_start_l, cur_start_c, cur_opts.end_line, cur_opts.end_col) then
     api.nvim_buf_set_extmark(buf, ns, cur_start_l, cur_start_c, cur_opts)
   end
 end
