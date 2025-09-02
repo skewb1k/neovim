@@ -507,7 +507,7 @@ for i = 1, #functions do
     if not fn.receives_array_args then
       output:write('\n  if (args.size != ' .. #fn.parameters .. ') {')
       output:write(
-        '\n    api_set_error(error, kErrorTypeException, \
+        '\n    api_set_error(error, kErrorTypeException,\
         "Wrong number of arguments: expecting '
           .. #fn.parameters
           .. ' but got %zu", args.size);'
@@ -550,7 +550,7 @@ for i = 1, #functions do
 
         output:write('\n  } else {')
         output:write(
-          '\n    api_set_error(error, kErrorTypeException, \
+          '\n    api_set_error(error, kErrorTypeException,\
           "Wrong type for argument '
             .. j
             .. ' when calling '
@@ -626,7 +626,7 @@ for i = 1, #functions do
         end
         output:write('\n  } else {')
         output:write(
-          '\n    api_set_error(error, kErrorTypeException, \
+          '\n    api_set_error(error, kErrorTypeException,\
           "Wrong type for argument '
             .. j
             .. ' when calling '
