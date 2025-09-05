@@ -1233,6 +1233,7 @@ describe('user config init', function()
     end)
 
     after_each(function()
+      check_close()
       for _, file in ipairs({ '.exrc', '.nvimrc', '.nvim.lua' }) do
         os.remove('../' .. file)
         os.remove(file)

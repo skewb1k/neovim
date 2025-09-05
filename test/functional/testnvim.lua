@@ -446,6 +446,7 @@ function M.check_close()
   uv.update_time() -- Update cached value of luv.now() (libuv: uv_now()).
   local end_time = uv.now()
   local delta = end_time - start_time
+  print(delta)
   if delta > 500 then
     print(
       'nvim took '

@@ -11,7 +11,11 @@ local reset, clear = t_shada.reset, t_shada.clear
 describe('shada support code', function()
   local testfilename = 'Xtestfile-functional-shada-buffers'
   local testfilename_2 = 'Xtestfile-functional-shada-buffers-2'
-  after_each(clear)
+  after_each(function()
+    clear()
+    os.remove(testfilename)
+    os.remove(testfilename_2)
+  end)
 
   it('is able to dump and restore buffer list', function()
     reset('set shada+=%')
