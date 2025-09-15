@@ -443,17 +443,31 @@ local function on_range_impl(
           local url = get_url(match, buf, capture, metadata)
 
           if hl and not on_conceal and (not on_spell or spell ~= nil) then
-            api.nvim_buf_set_extmark(buf, ns, start_row, start_col, {
-              end_line = end_row,
-              end_col = end_col,
-              hl_group = hl,
-              ephemeral = true,
-              priority = priority,
-              conceal = conceal,
-              spell = spell,
-              url = url,
-              _subpriority = subtree_counter,
-            })
+            local ok, err = pcall(function()
+              api.nvim_buf_set_extmark(buf, ns, start_row, start_col, {
+                end_line = end_row,
+                end_col = end_col,
+                hl_group = hl,
+                ephemeral = true,
+                priority = priority,
+                conceal = conceal,
+                spell = spell,
+                url = url,
+                _subpriority = subtree_counter,
+              })
+            end)
+
+            if not ok then
+              vim.print({
+                start_row = start_row,
+                start_col = start_col,
+                end_row = end_row,end_col,
+                range_start_row = range_start_row,
+                range_start_col = range_start_col,
+                range_end_row = range_end_row,
+                range_end_col = range_end_col}
+                )
+            end
           end
 
           if
