@@ -2,7 +2,22 @@ local util = require('vim.lsp.util')
 local log = require('vim.lsp.log')
 local ms = require('vim.lsp.protocol').Methods
 local api = vim.api
+
+local Capability = require('vim.lsp._capability')
+
 local M = {}
+
+---@class (private) STHighlighter : vim.lsp.Capability
+---@field active table<integer, STHighlighter>
+---@field client_state table<integer, STClientState>
+local STHighlighter = {
+  name = 'semantic_tokens',
+  method = ms.textDocument_semanticTokens_full,
+  active = {},
+}
+STHighlighter.__index = STHighlighter
+setmetatable(STHighlighter, Capability)
+Capability.all[STHighlighter.name] = STHighlighter
 
 ---@class (private) vim.lsp.inlay_hint.globalstate Global state for inlay hints
 ---@field enabled boolean Whether inlay hints are enabled for this scope
