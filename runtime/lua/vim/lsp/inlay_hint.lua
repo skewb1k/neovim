@@ -2,36 +2,24 @@ local util = require('vim.lsp.util')
 local log = require('vim.lsp.log')
 local ms = require('vim.lsp.protocol').Methods
 local api = vim.api
+
+local Capability = require('vim.lsp._capability')
+
 local M = {}
 
----@class (private) vim.lsp.inlay_hint.globalstate Global state for inlay hints
----@field enabled boolean Whether inlay hints are enabled for this scope
----@type vim.lsp.inlay_hint.globalstate
-local globalstate = {
-  enabled = false,
-}
-
----@class (private) vim.lsp.inlay_hint.bufstate: vim.lsp.inlay_hint.globalstate Buffer local state for inlay hints
----@field version? integer
----@field client_hints? table<integer, table<integer, lsp.InlayHint[]>> client_id -> (lnum -> hints)
----@field applied table<integer, integer> Last version of hints applied to this line
-
----@type table<integer, vim.lsp.inlay_hint.bufstate>
-local bufstates = vim.defaulttable(function(_)
-  return setmetatable({ applied = {} }, {
-    __index = globalstate,
-    __newindex = function(state, key, value)
-      if globalstate[key] == value then
-        rawset(state, key, nil)
-      else
-        rawset(state, key, value)
-      end
-    end,
-  })
-end)
-
 local namespace = api.nvim_create_namespace('nvim.lsp.inlayhint')
-local augroup = api.nvim_create_augroup('nvim.lsp.inlayhint', {})
+-- local augroup = api.nvim_create_augroup('nvim.lsp.inlayhint', {})
+
+---@class (private) vim.lsp.inlay_hint.Hinter : vim.lsp.Capability
+---@field active table<integer, vim.lsp.inlay_hint.Hinter?>
+local Hinter = {
+  name = 'inlay_hint',
+  method = ms.textDocument_inlayHint,
+  active = {},
+}
+Hinter.__index = Hinter
+setmetatable(Hinter, Capability)
+Hinter.all[Hinter.name] = Hinter
 
 --- |lsp-handler| for the method `textDocument/inlayHint`
 --- Store hints for a specific buffer and client
@@ -377,25 +365,23 @@ api.nvim_set_decoration_provider(namespace, {
 })
 
 --- Query whether inlay hint is enabled in the {filter}ed scope
---- @param filter? vim.lsp.inlay_hint.enable.Filter
+--- @param filter? vim.lsp.capability.enable.Filter
 --- @return boolean
 --- @since 12
 function M.is_enabled(filter)
-  vim.validate('filter', filter, 'table', true)
-  filter = filter or {}
-  local bufnr = filter.bufnr
-
-  if bufnr == nil then
-    return globalstate.enabled
-  end
-  return bufstates[vim._resolve_bufnr(bufnr)].enabled
+  return vim.lsp._capability.is_enabled('inlay_hint', filter)
 end
 
 --- Optional filters |kwargs|, or `nil` for all.
 --- @class vim.lsp.inlay_hint.enable.Filter
 --- @inlinedoc
 --- Buffer number, or 0 for current buffer, or nil for all.
---- @field bufnr integer?
+--- (default: all)
+---@field bufnr? integer
+---
+--- Client ID, or nil for all.
+--- (default: all)
+---@field client_id? integer
 
 --- Enables or disables inlay hints for the {filter}ed scope.
 ---
@@ -406,34 +392,10 @@ end
 --- ```
 ---
 --- @param enable (boolean|nil) true/nil to enable, false to disable
---- @param filter vim.lsp.inlay_hint.enable.Filter?
+--- @param filter? vim.lsp.capability.enable.Filter
 --- @since 12
 function M.enable(enable, filter)
-  vim.validate('enable', enable, 'boolean', true)
-  vim.validate('filter', filter, 'table', true)
-  enable = enable == nil or enable
-  filter = filter or {}
-
-  if filter.bufnr == nil then
-    globalstate.enabled = enable
-    for _, bufnr in ipairs(api.nvim_list_bufs()) do
-      if api.nvim_buf_is_loaded(bufnr) then
-        if enable == false then
-          _disable(bufnr)
-        else
-          _enable(bufnr)
-        end
-      else
-        bufstates[bufnr] = nil
-      end
-    end
-  else
-    if enable == false then
-      _disable(filter.bufnr)
-    else
-      _enable(filter.bufnr)
-    end
-  end
+  vim.lsp._capability.enable('inlay_hint', enable, filter)
 end
 
 return M
