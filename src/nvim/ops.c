@@ -6363,7 +6363,7 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       clearopbeep(oap);
     }
     virtual_op = kNone;
-    if (!gui_yank) {
+    if (!gui_yank && oap->op_type != OP_COLON) {
       // if 'sol' not set, go back to old column for some commands
       if (!p_sol && oap->motion_type == kMTLineWise && !oap->end_adjusted
           && (oap->op_type == OP_LSHIFT || oap->op_type == OP_RSHIFT
