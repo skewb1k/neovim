@@ -52,6 +52,11 @@ function M.hover(config)
   config = config or {}
   config.focus_id = ms.textDocument_hover
 
+  util._cancel_requests({
+    bufnr = 0,
+    method = ms.textDocument_hover,
+    type = 'pending',
+  })
   lsp.buf_request_all(0, ms.textDocument_hover, client_positional_params(), function(results, ctx)
     local bufnr = assert(ctx.bufnr)
     if api.nvim_get_current_buf() ~= bufnr then
@@ -200,6 +205,12 @@ local function get_locations(method, opts)
   from[1] = bufnr
   local tagname = vim.fn.expand('<cword>')
 
+  util._cancel_requests({
+    bufnr = bufnr,
+    clients = clients,
+    method = method,
+    type = 'pending',
+  })
   lsp.buf_request_all(bufnr, method, function(client)
     return util.make_position_params(win, client.offset_encoding)
   end, function(results)
@@ -389,6 +400,11 @@ function M.signature_help(config)
   config.focus_id = method
   local user_title = config.title
 
+  util._cancel_requests({
+    bufnr = 0,
+    method = method,
+    type = 'pending',
+  })
   lsp.buf_request_all(0, method, client_positional_params(), function(results, ctx)
     if api.nvim_get_current_buf() ~= ctx.bufnr then
       -- Ignore result since buffer changed. This happens for slow language servers.
