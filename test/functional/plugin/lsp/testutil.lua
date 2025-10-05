@@ -112,6 +112,7 @@ local function fake_lsp_server_setup(test_name, timeout_ms, options, settings)
     options = options or {}
     settings = settings or {}
     _G.lsp = require('vim.lsp')
+    _G.lsp.log._set_filename(fake_lsp_logfile)
     _G.TEST_RPC_CLIENT_ID = _G.lsp.start_client {
       cmd_env = {
         NVIM_LOG_FILE = fake_lsp_logfile,

@@ -73,6 +73,9 @@ end
 describe('LSP', function()
   before_each(function()
     clear_notrace()
+    exec_lua(function()
+      require('vim.lsp').log._set_filename(fake_lsp_logfile)
+    end)
   end)
 
   after_each(function()

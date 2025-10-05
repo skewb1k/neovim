@@ -94,7 +94,7 @@ local function client_error(name)
   return { [name] = index, [index] = name }
 end
 
---- Error codes to be used with `on_error` from |vim.lsp.start_client|.
+--- Error codes to be used with `on_error` from |vim.lsp.start|.
 --- Can be used to look up the string from a the number or the number
 --- from the string.
 --- @nodoc

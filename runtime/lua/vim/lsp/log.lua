@@ -80,7 +80,7 @@ local logfilename = vim.fs.joinpath(vim.fn.stdpath('log') --[[@as string]], 'lsp
 -- TODO: Ideally the directory should be created in open_logfile(), right
 -- before opening the log file, but open_logfile() can be called from libuv
 -- callbacks, where using fn.mkdir() is not allowed.
-vim.fn.mkdir(vim.fn.stdpath('log') --[[@as string]], 'p')
+-- vim.fn.mkdir(vim.fn.stdpath('log') --[[@as string]], 'p')
 
 --- Returns the log filename.
 ---@return string log filename
@@ -106,6 +106,8 @@ local function open_logfile()
     return false
   end
 
+  vim.print(logfilename)
+  vim.fn.mkdir(vim.fs.dirname(logfilename), 'p')
   logfile, openerr = io.open(logfilename, 'a+')
   if not logfile then
     local err_msg = string.format('Failed to open LSP client log file: %s', openerr)
