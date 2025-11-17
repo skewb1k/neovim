@@ -2502,7 +2502,7 @@ int cursor_up(linenr_T n, bool upd_topline)
   if (n > 0 && curwin->w_cursor.lnum <= 1) {
     return FAIL;
   }
-  cursor_up_inner(curwin, n, false);
+  cursor_up_inner(curwin, n, conceal_cursor_line(curwin));
 
   // try to advance to the column we want to be at
   coladvance(curwin, curwin->w_curswant);
@@ -2555,7 +2555,7 @@ int cursor_down(int n, bool upd_topline)
   if (n > 0 && lnum >= curwin->w_buffer->b_ml.ml_line_count) {
     return FAIL;
   }
-  cursor_down_inner(curwin, n, false);
+  cursor_down_inner(curwin, n, conceal_cursor_line(curwin));
 
   // try to advance to the column we want to be at
   coladvance(curwin, curwin->w_curswant);
