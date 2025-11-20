@@ -540,6 +540,14 @@ function TSHighlighter._on_win(_, _, buf, topline, botline)
   if not self then
     return false
   end
+  self.parsing = self.parsing
+    or nil
+      == self.tree:parse({ topline, botline + 1 }, function(_, trees)
+        if trees and self.parsing then
+          self.parsing = false
+          api.nvim__redraw({ buf = buf, valid = false, flush = false })
+        end
+      end)
   if not self.parsing then
     self.redraw_count = self.redraw_count + 1
     self:prepare_highlight_states(topline, botline)
