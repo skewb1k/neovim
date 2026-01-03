@@ -2301,7 +2301,9 @@ void msg_puts_len(const char *const str, const ptrdiff_t len, int hl_id, bool hi
   // cursor is.
   if (msg_use_printf()) {
     int saved_msg_col = msg_col;
+    info_message = true;   // use stdout, not stderr
     msg_puts_printf(str, len);
+    info_message = false;  // use stderr, not stdout
     if (headless_mode) {
       msg_col = saved_msg_col;
     }
