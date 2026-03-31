@@ -2061,8 +2061,6 @@ describe('vim.diagnostic', function()
 
         eq({
           'DiagnosticDeprecated',
-          'DiagnosticUnnecessary',
-          'DiagnosticUnderlineError',
         }, result)
       end
     )
